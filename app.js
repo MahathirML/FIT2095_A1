@@ -1,0 +1,399 @@
+/**
+ * Import the Express module.
+ * @module express
+ */
+const express = require("express");
+
+/**
+ * Import the path module for handling file and directory paths.
+ * @module path
+ */
+const path = require("path");
+
+/**
+ * Create an instance of the Express application.
+ * @type {express.Application}
+ */
+const app = express();
+
+/**
+ * Serve static files from the specified directories.
+ */
+app.use(
+  express.static(path.join(__dirname, "node_modules/bootstrap/dist/css"))
+);
+app.use(express.static(path.join(__dirname, "resources")));
+
+app.use(express.urlencoded({ extended: true }));
+
+/**
+ * Set EJS as the template engine for rendering HTML files.
+ */
+app.engine("html", require("ejs").renderFile);
+app.set("view engine", "html");
+
+/**
+ * Start the server on port 8080.
+ */
+app.listen(8080);
+
+const VIEWS_PATH = path.join(__dirname, "views");
+const URL_PREFIX = "/33348162/Mahathir";
+
+let Driver = require("./classes/Driver");
+let Package = require("./classes/Package");
+
+// Sample driver data
+/**
+ * @type {Driver} - Represents a driver with initial data.
+ */
+const driver1 = new Driver("John Doe", "Food", "AB123CD", true);
+/**
+ * @type {Driver} - Represents another driver with initial data.
+ */
+const driver2 = new Driver("Jane Smith", "Furniture", "EF456GH", false);
+
+let driversDatabase = [driver1, driver2];
+
+// Sample package data
+/**
+ * @type {Package} - Represents a package with initial data.
+ */
+const package1 = new Package(
+  "Electronics Gadget",
+  1.2,
+  "456 Tech Park, Silicon Valley",
+  "A high-end electronics gadget.",
+  false,
+  "AB123CD"
+);
+/**
+ * @type {Package} - Represents another package with initial data.
+ */
+const package2 = new Package(
+  "Furniture Set",
+  15.11,
+  "789 Home Street, Suburbia",
+  "A complete set of living room furniture.",
+  true,
+  "EF456GH"
+);
+/**
+ * @type {Package} - Represents another package with initial data.
+ */
+const package3 = new Package(
+  "Kitchen Appliances",
+  5.5554,
+  "123 Appliance Avenue, Downtown",
+  "A set of new kitchen appliances.",
+  false,
+  "GH789IJ"
+);
+
+let packagesDatabase = [package1, package2, package3];
+
+/**
+ * Serves the index.html file for the root route.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.get("/", function (req, res) {
+  res.sendFile(VIEWS_PATH + "/index.html");
+});
+
+/**
+ * Renders a list of drivers.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.get(URL_PREFIX + "/drivers", function (req, res) {
+  res.render(VIEWS_PATH + "/driverViews/drivers.html", { db: driversDatabase });
+});
+
+/**
+ * Serves the add driver form.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.get(URL_PREFIX + "/drivers/add", function (req, res) {
+  res.sendFile(VIEWS_PATH + "/driverViews/add_driver.html");
+});
+
+/**
+ * Handles adding a new driver.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.post(URL_PREFIX + "/drivers/add", function (req, res) {
+  const { driver_name, driver_department, driver_licence, driver_isActive } =
+    req.body;
+
+  if (
+    !driver_name ||
+    !driver_department ||
+    !driver_licence ||
+    !driver_isActive
+  ) {
+    return res.redirect(URL_PREFIX + "/invalid_data");
+  }
+
+  // Validation for driver_name
+  if (
+    driver_name.length < 3 ||
+    driver_name.length > 20 ||
+    !/^[A-Za-z\s]+$/.test(driver_name)
+  ) {
+    console.log("Name issue");
+    return res.redirect(URL_PREFIX + "/invalid_data");
+  }
+
+  // Validation for driver_licence
+  if (driver_licence.length !== 5 || !/^[A-Za-z0-9]+$/.test(driver_licence)) {
+    console.log("Licence issue");
+    return res.redirect(URL_PREFIX + "/invalid_data");
+  }
+  const driverIsActive = driver_isActive === "true";
+
+  let currentDriver = new Driver(
+    driver_name,
+    driver_department,
+    driver_licence,
+    driverIsActive
+  );
+  driversDatabase.push(currentDriver);
+  res.redirect(URL_PREFIX + "/drivers");
+});
+
+/**
+ * Serves the form to filter drivers by department.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.get(URL_PREFIX + "/drivers/by-department", function (req, res) {
+  res.sendFile(VIEWS_PATH + "/driverViews/choose_dept.html");
+});
+
+/**
+ * Filters and renders a list of drivers by department.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.post(URL_PREFIX + "/drivers/by-department", function (req, res) {
+  const department = req.body.driver_department;
+  if (!department) {
+    return res.redirect(URL_PREFIX + "/invalid_data");
+  }
+  const filteredDrivers = driversDatabase.filter(
+    (d) => d.driver_department === department
+  );
+  res.render(VIEWS_PATH + "/driverViews/dept_drivers.html", {
+    department: department,
+    db: filteredDrivers,
+  });
+});
+
+/**
+ * Serves the form to delete a driver.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.get(URL_PREFIX + "/drivers/delete", function (req, res) {
+  res.sendFile(VIEWS_PATH + "/driverViews/delete_driver.html");
+});
+
+/**
+ * Handles deletion of a driver by ID from the URL.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.get(URL_PREFIX + "/drivers/delete/:idParam", function (req, res) {
+  const idToDelete = req.params.idParam;
+  const driverIndex = driversDatabase.findIndex(
+    (item) => item.driver_id === idToDelete
+  );
+  if (driverIndex !== -1) {
+    driversDatabase = driversDatabase.filter(
+      (item) => item.driver_id !== idToDelete
+    );
+    res.redirect(URL_PREFIX + "/drivers");
+  } else {
+    res.redirect(URL_PREFIX + "/invalid_data");
+  }
+});
+
+/**
+ * Handles deletion of a driver by ID from a POST request.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.post(URL_PREFIX + "/drivers/delete", function (req, res) {
+  const idToDelete = req.body.driver_id;
+  const driverIndex = driversDatabase.findIndex(
+    (item) => item.driver_id === idToDelete
+  );
+  if (driverIndex !== -1) {
+    driversDatabase = driversDatabase.filter(
+      (item) => item.driver_id !== idToDelete
+    );
+    res.redirect(URL_PREFIX + "/drivers");
+  } else {
+    res.redirect(URL_PREFIX + "/invalid_data");
+  }
+});
+
+/**
+ * Renders a list of packages.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.get(URL_PREFIX + "/packages", function (req, res) {
+  res.render(VIEWS_PATH + "/packageViews/packages.html", {
+    db: packagesDatabase,
+  });
+});
+
+/**
+ * Serves the form to add a new package.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.get(URL_PREFIX + "/packages/add", function (req, res) {
+  res.render(VIEWS_PATH + "/packageViews/add_package.html", {
+    drivers: driversDatabase,
+  });
+});
+
+/**
+ * Handles adding a new package.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.post(URL_PREFIX + "/packages/add", function (req, res) {
+  const {
+    package_title,
+    package_weight,
+    package_destination,
+    description,
+    isAllocated,
+    driver_id,
+  } = req.body;
+
+  if (
+    !package_title ||
+    !package_weight ||
+    !package_destination ||
+    !isAllocated ||
+    !driver_id
+  ) {
+    return res.redirect(URL_PREFIX + "/invalid_data");
+  }
+
+  // Validation for package_title
+  if (
+    package_title.length < 3 ||
+    package_title.length > 15 ||
+    !/^[A-Za-z0-9]+$/.test(package_title)
+  ) {
+    return res.redirect(URL_PREFIX + "/invalid_data");
+  }
+
+  // Convert package_weight to a floating-point number and validate range
+  const package_weight_float = parseFloat(package_weight);
+  if (isNaN(package_weight_float) || package_weight_float <= 0) {
+    return res.redirect(URL_PREFIX + "/invalid_data");
+  }
+
+  // Validation for package_destination
+  if (
+    package_destination.length < 5 ||
+    package_destination.length > 15 ||
+    !/^[A-Za-z0-9]+$/.test(package_destination)
+  ) {
+    return res.redirect(URL_PREFIX + "/invalid_data");
+  }
+
+  // Validation for description (length between 0 and 30 characters, can include special characters)
+  if (description.length > 30) {
+    return res.redirect(URL_PREFIX + "/invalid_data");
+  }
+  const packageIsAllocated = isAllocated === "true";
+  let newPackage = new Package(
+    package_title,
+    package_weight_float,
+    package_destination,
+    description,
+    packageIsAllocated,
+    driver_id
+  );
+  packagesDatabase.push(newPackage);
+  res.render(VIEWS_PATH + "/packageViews/packages.html", {
+    db: packagesDatabase,
+  });
+});
+
+/**
+ * Serves the form to delete a package.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.get(URL_PREFIX + "/packages/delete", function (req, res) {
+  res.sendFile(VIEWS_PATH + "/packageViews/delete_package.html");
+});
+
+/**
+ * Handles deletion of a package by ID from the URL.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.get(URL_PREFIX + "/packages/delete/:idParam", function (req, res) {
+  const idToDelete = req.params.idParam;
+  const packageIndex = packagesDatabase.findIndex(
+    (item) => item.package_id === idToDelete
+  );
+  if (packageIndex !== -1) {
+    packagesDatabase = packagesDatabase.filter(
+      (item) => item.package_id !== idToDelete
+    );
+    res.redirect(URL_PREFIX + "/packages");
+  } else {
+    res.redirect(URL_PREFIX + "/invalid_data");
+  }
+});
+
+/**
+ * Handles deletion of a package by ID from a POST request.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.post(URL_PREFIX + "/packages/delete", function (req, res) {
+  const idToDelete = req.body.package_id;
+  const packageIndex = packagesDatabase.findIndex(
+    (item) => item.package_id === idToDelete
+  );
+  if (packageIndex !== -1) {
+    packagesDatabase = packagesDatabase.filter(
+      (item) => item.package_id !== idToDelete
+    );
+    res.redirect(URL_PREFIX + "/packages");
+  } else {
+    res.redirect(URL_PREFIX + "/invalid_data");
+  }
+});
+
+/**
+ * Renders an error due to invalid data inputted.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.get(URL_PREFIX + "/invalid_data", function (req, res) {
+  res.sendFile(VIEWS_PATH + "/invalid_data.html");
+});
+
+/**
+ * Handles 404 errors for undefined routes.
+ * @param {express.Request} req - The request object.
+ * @param {express.Response} res - The response object.
+ */
+app.get("*", function (req, res) {
+  res.sendFile(VIEWS_PATH + "/404.html");
+});
